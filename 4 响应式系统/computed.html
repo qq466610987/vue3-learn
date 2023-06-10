@@ -6,7 +6,7 @@
       </div>
       <script>
             const data = {
-                  a: 1,
+                        a: 1,
                   b: 2,
             };
 
@@ -25,20 +25,7 @@
 
             const obj = new Proxy(data, {
                   get(targetObj, key) {
-                        let depsMap = reactiveMap.get(targetObj);
 
-                        if (!depsMap) {
-                              reactiveMap.set(targetObj, (depsMap = new Map()));
-                        }
-
-                        let deps = depsMap.get(key);
-
-                        if (!deps) {
-                              depsMap.set(key, (deps = new Set()));
-                        }
-
-                        deps.add(activeEffect);
-                        activeEffect.deps.push(deps)
 
                         return targetObj[key];
                   },
@@ -65,6 +52,23 @@
                         deps.delete(effectFn)
                   }
                   effectFn.deps.length = 0
+            }
+
+            function track(targetObj, key) {
+                  let depsMap = reactiveMap.get(targetObj);
+
+                  if (!depsMap) {
+                        reactiveMap.set(targetObj, (depsMap = new Map()));
+                  }
+
+                  let deps = depsMap.get(key);
+
+                  if (!deps) {
+                        depsMap.set(key, (deps = new Set()));
+                  }
+
+                  deps.add(activeEffect);
+                  activeEffect.deps.push(deps)
             }
       </script>
 </body>
