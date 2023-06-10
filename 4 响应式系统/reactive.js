@@ -5,6 +5,8 @@ const data = {
 };
 
 let activeEffect
+
+// effcet 是注册副作用函数的函数
 function effect(fn) {
       const effectFn = () => {
             cleanup(effectFn)
@@ -46,13 +48,17 @@ const obj = new Proxy(data, {
             const effects = depsMap.get(key);
             effects && effects.forEach((fn) => fn());
       },
-});
+});   
+
+//
 effect(() => {
       console.log(obj.a ? obj.b : 'nothing');
 });
 console.log(reactiveMap)
 // obj.a = undefined;
 // obj.b = 3;
+
+// 在执行副作用函数时，先清除与该副作用函数有依赖关系的集合，再重新绑定
 function cleanup(effectFn) {
       for (let i = 0; i < effectFn.deps.length; i++) {
             const deps = effectFn.deps[i]
