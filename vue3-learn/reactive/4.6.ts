@@ -1,12 +1,9 @@
-<body></body>
-<script lang="typescript">
-
 
   // 存储副作用函数的桶
   const bucket = new WeakMap()
 
   // 原始数据
-  const data = { foo: 1 }
+  const data = { foo: true, bar: true }
   // 对原始数据的代理
   const obj = new Proxy(data, {
     // 拦截读取操作
@@ -26,7 +23,6 @@
   })
 
   function track(target, key) {
-    if (!activeEffect) return
     let depsMap = bucket.get(target)
     if (!depsMap) {
       bucket.set(target, (depsMap = new Map()))
@@ -45,20 +41,8 @@
     const effects = depsMap.get(key)
 
     const effectsToRun = new Set()
-    effects && effects.forEach(effectFn => {
-      if (effectFn !== activeEffect) {
-        effectsToRun.add(effectFn)
-      }
-    })
-    effectsToRun.forEach(effectFn => {
-      // 如果存在调度器的话，交给调度器去执行副作用函数
-      if (effectFn.options.scheduler) {
-        effectFn.options.scheduler(effectFn)
-      } else {
-        effectFn()
-      }
-    })
-
+    effects && effects.forEach(effectFn => effectsToRun.add(effectFn))
+    effectsToRun.forEach(effectFn => effectFn())
     // effects && effects.forEach(effectFn => effectFn())
   }
 
@@ -67,8 +51,7 @@
   // effect 栈
   const effectStack = []
 
-  //用来注册副作用函数的函数
-  function effect(fn, options = {}) {
+  function effect(fn) {
     const effectFn = () => {
       cleanup(effectFn)
       // 当调用 effect 注册副作用函数时，将副作用函数复制给 activeEffect
@@ -80,8 +63,6 @@
       effectStack.pop()
       activeEffect = effectStack[effectStack.length - 1]
     }
-    // 将options 挂载在
-    effectFn.options = options
     // activeEffect.deps 用来存储所有与该副作用函数相关的依赖集合
     effectFn.deps = []
     // 执行副作用函数
@@ -98,37 +79,20 @@
 
 
 
+
   // =========================
-  const jobQueue = new Set()
-  const p = Promise.resolve()
 
-  let isFlushing = false
-  function flushJob() {
-    if (isFlushing) return
-    isFlushing = true
-    p.then(() => {
-      jobQueue.forEach(job => job())
-    }).finally(() => {
-      isFlushing = false
+  let temp1, temp2
+
+  effect(function effectFn1() {
+    console.log('effectFn1 执行')
+    effect(function effectFn2() {
+      console.log('effectFn2 执行')
+      temp2 = obj.bar
     })
-  }
-  effect(
-    () => {
-      console.log(obj.foo)
-    },
-    // options
-    {
-      // 调度器函数
-      scheduler(fn) {
-        jobQueue.add(fn)
-        flushJob()
-      }
-    }
-  )
+    temp1 = obj.foo
+  })
 
-  obj.foo++
-  obj.foo++
-
-
-
-</script>
+  setTimeout(() => {
+    obj.foo = false
+  }, 1000);

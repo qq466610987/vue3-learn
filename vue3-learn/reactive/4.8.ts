@@ -1,4 +1,7 @@
-// 本部分实现调度执行的功能，
+// 本部分实现computed
+// 计算属性实现,包括懒执行，effect嵌套问题解决
+
+
 // 存储副作用函数的桶
 const bucket: WeakMap<Data, Map<string, Set<EffectFn>>> = new WeakMap()
 
@@ -6,7 +9,7 @@ const bucket: WeakMap<Data, Map<string, Set<EffectFn>>> = new WeakMap()
 type Data = {
   [key: string | symbol]: number
 }
-const data: Data = { foo: 1 }
+const data: Data = { foo: 1, bar: 1 }
 // 对原始数据的代理
 const obj = new Proxy(data, {
   // 拦截读取操作
@@ -72,7 +75,8 @@ interface Fn {
 interface EffectFn {
   (): void;
   options: {
-    scheduler?: (fn: Fn) => void
+    scheduler?: (fn: Fn) => void,
+    lazy?: boolean
   };
   deps: Set<EffectFn>[]
 }
@@ -88,17 +92,22 @@ function effect(fn: () => void, options = {}) {
     activeEffect = effectFn
     // 在调用副作用函数之前将当前副作用函数压栈
     effectStack.push(effectFn)
-    fn()
+    const res = fn()
     // 在当前副作用函数执行完毕后，将当前副作用函数弹出栈，并还原 activeEffect 为之前的值
     effectStack.pop()
     activeEffect = effectStack[effectStack.length - 1]
+    return res
   }
   // 将options 挂载在
   effectFn.options = options
   // activeEffect.deps 用来存储所有与该副作用函数相关的依赖集合
   effectFn.deps = []
   // 执行副作用函数
-  effectFn()
+  // 新增
+  if (!effectFn.options.lazy) {
+    effectFn()
+  }
+  return effectFn;
 }
 
 function cleanup(effectFn: EffectFn) {
@@ -126,20 +135,49 @@ function flushJob() {
   })
 }
 
-effect(
-  () => {
-    console.log(obj.foo)
-  },
-  // options
-  {
-    // 调度器函数
-    scheduler(fn: Fn) {
-      jobQueue.add(fn)
-      flushJob()
+// 计算属性实现,包括懒执行，effect嵌套问题解决
+function computed(getter: () => void) {
+
+  // 缓存上一次计算的值
+  let value: any;
+
+  // dirty标志,用来标识是否需要重新计算值
+  let dirty = true
+
+  const effectFn = effect(getter, {
+    lazy: true,
+    // 这里shceduler充当了钩子函数的作用,同时充分利用了JS闭包特性
+    scheduler() {
+      // 闭包
+      if (!dirty) {
+        dirty = true
+        // 这里做的是当计算属性中任意一个响应式数据变化时，就会触发computerd.value 绑定的副作用函数
+        trigger(res, 'value')
+      }
+    }
+  })
+
+  const res = {
+    get value() {
+      if (dirty) {
+        value = effectFn()
+        dirty = false
+      }
+      // 这里其实相当于把计算属性也变成了一个响应式数据
+      track(res, 'value')
+      return value
     }
   }
-)
 
+  return res
+}
+
+const sumRes = computed(() => obj.foo + obj.bar)
+effect(() => {
+  console.log(sumRes.value)
+})
 obj.foo++
-obj.foo++
+
+export { data }
+
 
