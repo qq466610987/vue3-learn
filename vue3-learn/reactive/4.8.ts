@@ -1,7 +1,6 @@
 // 本部分实现computed
 // 计算属性实现,包括懒执行，effect嵌套问题解决
 
-
 // 存储副作用函数的桶
 const bucket: WeakMap<Data, Map<string, Set<EffectFn>>> = new WeakMap()
 
@@ -11,7 +10,7 @@ type Data = {
 }
 const data: Data = { foo: 1, bar: 1 }
 // 对原始数据的代理
-const obj = new Proxy(data, {
+export const obj = new Proxy(data, {
   // 拦截读取操作
   get(target, key) {
     // 将副作用函数 activeEffect 添加到存储副作用函数的桶中
@@ -28,7 +27,6 @@ const obj = new Proxy(data, {
     return true
   }
 })
-
 
 function track(target: Data, key: string) {
   if (!activeEffect) return
@@ -85,7 +83,7 @@ let activeEffect: EffectFn;
 const effectStack: EffectFn[] = []
 
 //用来注册副作用函数的函数
-function effect(fn: () => void, options = {}) {
+export function effect(fn: () => void, options = {}) {
   const effectFn: EffectFn = () => {
     cleanup(effectFn)
     // 当调用 effect 注册副作用函数时，将副作用函数复制给 activeEffect
@@ -136,7 +134,7 @@ function flushJob() {
 }
 
 // 计算属性实现,包括懒执行，effect嵌套问题解决
-function computed(getter: () => void) {
+export function computed(getter: () => void) {
 
   // 缓存上一次计算的值
   let value: any;
@@ -176,7 +174,7 @@ const sumRes = computed(() => obj.foo + obj.bar)
 effect(() => {
   console.log(sumRes.value)
 })
-obj.foo++
+
 
 export { data }
 
