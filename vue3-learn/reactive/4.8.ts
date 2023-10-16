@@ -116,7 +116,6 @@ function cleanup(effectFn: EffectFn) {
   effectFn.deps.length = 0
 }
 
-
 // =========================
 // 调度执行
 const jobQueue: Set<Fn> = new Set()
@@ -150,6 +149,7 @@ export function computed(getter: () => void) {
       if (!dirty) {
         dirty = true
         // 这里做的是当计算属性中任意一个响应式数据变化时，就会触发computerd.value 绑定的副作用函数
+        // 补充：这里为什么要手动触发？想想在响应式数据中是访问器属性setter中触发的,而计算属性没有setter的,所以需要手动触发
         trigger(res, 'value')
       }
     }
@@ -157,11 +157,11 @@ export function computed(getter: () => void) {
 
   const res = {
     get value() {
-      if (dirty) {
+      if (!dirty) {
         value = effectFn()
         dirty = false
       }
-      // 这里其实相当于把计算属性也变成了一个响应式数据
+      // 这里其实相当于把计算属性也变成了一个响应式数据, 收集访问res.value的副作用函数
       track(res, 'value')
       return value
     }
@@ -169,11 +169,6 @@ export function computed(getter: () => void) {
 
   return res
 }
-
-const sumRes = computed(() => obj.foo + obj.bar)
-effect(() => {
-  console.log(sumRes.value)
-})
 
 
 export { data }
