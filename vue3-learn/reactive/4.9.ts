@@ -1,6 +1,4 @@
-// 本部分实现computed
-// 计算属性实现,包括懒执行，effect嵌套问题解决
-
+// 4.9 watch的实现原理
 // 存储副作用函数的桶
 const bucket: WeakMap<Data, Map<string, Set<EffectFn>>> = new WeakMap()
 
@@ -169,6 +167,39 @@ export function computed(getter: () => void) {
   return res
 }
 
+/**
+ * 遍历的读取所有值
+ */
+function traverse(value: any, seen = new Set()) {
+  let a = {
+    a: {
+      b: 1
+    },
+    c: 1,
+    d: 1
+  }
+  if (typeof value !== 'object' || value === null || seen.has(value)) return
+  // 避免循环引用引起的死循环
+  seen.add(value)
+  for (const k in value) {
+    traverse(value[k], seen)
+  }
+  return value
+}
+// 新增 4.9 watch的实现
+export function watch(source: Data, cb: Function) {
+  effect(
+    () => traverse(source),
+    {
+      scheduler() {
+        cb()
+      }
+    }
+  )
+}
+
+
 export { data }
+
 
 
