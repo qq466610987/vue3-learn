@@ -3,10 +3,11 @@ import { resolve } from 'path'
 
 export default defineConfig({
   build: {
-    rollupOptions:{
-      input:{
+    rollupOptions: {
+      input: {
         main: resolve(__dirname, 'index.html'),
-        reactive: resolve(__dirname, 'reactive/index.html')
+        reactive: resolve(__dirname, 'reactive/index.html'),
+        render: resolve(__dirname, 'render/index.html')
       }
     },
     lib: {

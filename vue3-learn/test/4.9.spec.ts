@@ -10,4 +10,10 @@ describe('reactive/watch', () => {
     obj.bar++
     expect(i).toBe(1)
   })
+
+  it('can handle recurse ref',()=>{
+    
+
+  })
 })
+
