@@ -1,4 +1,4 @@
-// 正确设置class属性
+// 8.1 事件处理
 import { effect, ref } from '@vue/reactivity'
 
 interface VnodeElement extends HTMLElement {
@@ -118,12 +118,36 @@ const renderer = createRenderer({
     parent.insertBefore(el, anchor)
   },
   // 给el设置props
-  patchProps(el: HTMLElement, key, preValue, nextValue) {
+  patchProps(el: HTMLElement, key: string, preValue, nextValue) {
     function shouldSetAsProps(el: HTMLElement, key: string, value) {
       if (el.tagName === 'input' && key === 'form') return false;
       // 兜底
       return key in el;
     }
+    // 新增： 以ON开头的视为事件
+    if (/^on/.test(key)) {
+      // 代理模式：通过invoker作为一个代理事件处理函数，不用再每次事件更新时，重新解绑再绑定，提高性能
+      let invoker = el._vei
+      const name = key.slice(2).toLocaleLowerCase()
+      // 如果存在新的事件绑定函数，则为更新或新增
+      if (nextValue) {
+        if (!invoker) {
+          // 代理的事件处理函数
+          invoker = el._vei = (e) => {
+            invoker.value(e)
+          }
+          el.addEventListener(name, invoker)
+        }
+        // 将真正的事件处理函数传递给invoker.value
+        invoker.value = nextValue
+      } else if (invoker) {
+        // 如果新的事件绑定函数不存在，且存在旧的事件绑定函数，则解绑
+        el._vei = null
+        el.removeEventListener(name, invoker)
+      }
+    }
+
+
     // 对class做特殊处理
     if (key === 'class') {
       el.className = normalizeClass(nextValue)
@@ -179,19 +203,14 @@ function normalizeClass(classObj: Array<Object> | string | Object): string {
 }
 
 const vnode = {
-  type: 'p',
+  type: 'div',
   props: {
-    class: [{ foo: true }, 'bar']
+    class: [{ foo: true }, 'bar'],
+    onClick: () => {
+      alert('点击了')
+    }
   },
   children: 'text'
 }
 
-const newVnode = {
-  type: 'div',
-  props: {
-    id: 'foo'
-  },
-  children: 'hello'
-}
 renderer.render(vnode, document.getElementById('app') as HTMLElement)
-renderer.render(newVnode, document.querySelector('#app') as HTMLElement)

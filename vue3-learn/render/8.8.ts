@@ -1,8 +1,21 @@
-// 正确设置class属性
+// 8.1 事件处理
 import { effect, ref } from '@vue/reactivity'
+import { assert } from 'vitest'
 
 interface VnodeElement extends HTMLElement {
-  _vnode?: Object
+  _vnode?: Vnode,
+  _el?: HTMLElement
+}
+
+interface Vnode {
+  type: string | Object,
+  children: String | Vnode[],
+  _el: HTMLElement | undefined,
+  props?: {
+    class?: string | Object,
+    [key: `on${string}`]: Function,
+    [key: string]: any
+  }
 }
 
 function createRenderer(options) {
@@ -13,7 +26,7 @@ function createRenderer(options) {
    * @param vnode 虚拟节点
    * @param container 父容器
    */
-  function render(vnode: Object, container: VnodeElement) {
+  function render(vnode: Vnode, container: VnodeElement) {
     // 新的vnode存在,说明是更新或挂载操作
     if (vnode) {
       patch(container._vnode, vnode, container)
@@ -30,7 +43,7 @@ function createRenderer(options) {
     container._vnode = vnode
   }
 
-  function unmount(vnode) {
+  function unmount(vnode: Vnode) {
     const parent = (vnode._el as HTMLElement).parentNode
     parent?.removeChild(vnode._el)
   }
@@ -40,7 +53,7 @@ function createRenderer(options) {
    * @param n2 新的Vnode
    * @param container 
    */
-  function patch(n1, n2, container: VnodeElement) {
+  function patch(n1: Vnode, n2: Vnode, container: VnodeElement) {
     // 当新vnode的type和旧vnode不同时，执行卸载操作
     // 并将旧vnode设为null,后续执行挂载新节点的操作
     if (n1 && n1.type !== n2.type) {
@@ -67,8 +80,22 @@ function createRenderer(options) {
 
   }
   // 打补丁操作
-  function patchElement(n1, n2) {
+  function patchElement(n1: Vnode, n2: Vnode) {
+    const el = n2._el = n1._el
+    const oldProps = n1.props
+    const newProps = n2.props
 
+
+    for (const key in newProps) {
+      if (newProps[key] !== oldProps[key]) {
+        patchProps(el, key, oldProps[key], newProps[key])
+      }
+    }
+    for (const key in oldProps) {
+      if (!(key in newProps)) {
+        patchProps(el, key, oldProps[key], null)
+      }
+    }
   }
 
   /**
@@ -104,48 +131,6 @@ function createRenderer(options) {
   return { render }
 }
 
-const renderer = createRenderer({
-  createElement(tag) {
-    console.log(`创建元素 ${tag}`)
-    return document.createElement(tag)
-  },
-  setElementText(el, text) {
-    console.log(`设置 ${JSON.stringify(el)} 的文本内容：${text}`)
-    el.textContent = text
-  },
-  insert(el: HTMLElement, parent: HTMLElement, anchor = null) {
-    console.log(`将 ${JSON.stringify(el)} 添加到 ${JSON.stringify(parent)} 下`)
-    parent.insertBefore(el, anchor)
-  },
-  // 给el设置props
-  patchProps(el: HTMLElement, key, preValue, nextValue) {
-    function shouldSetAsProps(el: HTMLElement, key: string, value) {
-      if (el.tagName === 'input' && key === 'form') return false;
-      // 兜底
-      return key in el;
-    }
-    // 对class做特殊处理
-    if (key === 'class') {
-      el.className = normalizeClass(nextValue)
-    }
-    // 如果domproperties里有属性key
-    else if (shouldSetAsProps(el, key, nextValue)) {
-
-      // 获取dom properties的类型
-      const type = typeof el[key]
-      // 处理边缘case,比如处理模板`<button disable>`
-      if (type === 'boolean' && nextValue === '') {
-        el[key] = true
-      } else {
-        el[key] = nextValue
-      }
-    } else {
-      // DomProperties里没有属性key
-      el.setAttribute(key, nextValue)
-    }
-  }
-})
-
 /**
  * class对象转换为html支持的class写法
  * @param classObj class
@@ -178,20 +163,96 @@ function normalizeClass(classObj: Array<Object> | string | Object): string {
   return ''
 }
 
-const vnode = {
-  type: 'p',
-  props: {
-    class: [{ foo: true }, 'bar']
+const renderer = createRenderer({
+  createElement(tag) {
+    console.log(`创建元素 ${tag}`)
+    return document.createElement(tag)
   },
-  children: 'text'
-}
+  setElementText(el, text) {
+    console.log(`设置 ${JSON.stringify(el)} 的文本内容：${text}`)
+    el.textContent = text
+  },
+  insert(el: HTMLElement, parent: HTMLElement, anchor = null) {
+    console.log(`将 ${JSON.stringify(el)} 添加到 ${JSON.stringify(parent)} 下`)
+    parent.insertBefore(el, anchor)
+  },
+  // 给el设置props
+  patchProps(el: HTMLElement, key: string, preValue, nextValue) {
+    function shouldSetAsProps(el: HTMLElement, key: string, value) {
+      if (el.tagName === 'input' && key === 'form') return false;
+      // 兜底
+      return key in el;
+    }
+    // 新增： 以ON开头的视为事件
+    if (/^on/.test(key)) {
+      // 代理模式：通过invoker作为一个代理事件处理函数，不用再每次事件更新时，重新解绑再绑定，提高性能
+      let invoker = el._vei
+      const name = key.slice(2).toLocaleLowerCase()
+      // 如果存在新的事件绑定函数，则为更新或新增
+      if (nextValue) {
+        if (!invoker) {
+          // 代理的事件处理函数
+          invoker = el._vei = (e) => {
+            invoker.value(e)
+          }
+          el.addEventListener(name, invoker)
+        }
+        // 将真正的事件处理函数传递给invoker.value
+        invoker.value = nextValue
+      } else if (invoker) {
+        // 如果新的事件绑定函数不存在，且存在旧的事件绑定函数，则解绑
+        el._vei = undefined
+        el.removeEventListener(name, invoker)
+      }
+    }
+    // 对class做特殊处理
+    if (key === 'class') {
+      el.className = normalizeClass(nextValue)
+    }
+    // 如果domproperties里有属性key
+    else if (shouldSetAsProps(el, key, nextValue)) {
 
-const newVnode = {
-  type: 'div',
-  props: {
-    id: 'foo'
-  },
-  children: 'hello'
-}
-renderer.render(vnode, document.getElementById('app') as HTMLElement)
-renderer.render(newVnode, document.querySelector('#app') as HTMLElement)
+      // 获取dom properties的类型
+      const type = typeof el[key]
+      // 处理边缘case,比如处理模板`<button disable>`
+      if (type === 'boolean' && nextValue === '') {
+        el[key] = true
+      } else {
+        el[key] = nextValue
+      }
+    } else {
+      // DomProperties里没有属性key
+      el.setAttribute(key, nextValue)
+    }
+  }
+})
+
+
+const bol = ref(false)
+
+
+effect(() => {
+  const vnode = {
+    type: 'div',
+    props: bol.value ? {
+      onClick: () => {
+        alert('父元素 clicked')
+      }
+    } : {},
+    children: [
+      {
+        type: 'p',
+        props: {
+          onClick: () => {
+            bol.value = true
+            alert('子元素 clicked')
+          }
+        },
+        children: 'text'
+      }
+    ]
+  }
+  // 渲染 vnode
+  console.log('effect')
+  renderer.render(vnode, document.querySelector('#app') as HTMLElement)
+})
