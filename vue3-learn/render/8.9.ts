@@ -10,7 +10,7 @@ interface VnodeElement extends HTMLElement {
 interface Vnode {
   type: string | Object,
   children: String | Vnode[],
-  _el: HTMLElement | undefined,
+  _el?: HTMLElement | undefined,
   props?: {
     class?: string | Object,
     [key: `on${string}`]: Function,
@@ -118,6 +118,14 @@ function createRenderer(options) {
         // 此时旧节点为文本节点或为空
         setElementText(container,'')
         n2.children.forEach(item => patch(null,item,container))
+      }
+    }else {
+      // 代码运行到这里，说明新子节点n2不存在
+      // 旧子节点是一组子节点，只需逐个卸载 
+      if(Array.isArray(n1.children)){
+        n1.children.forEach(item => unmount(item))
+      }else{
+        setElementText(container,'')
       }
     }
 
@@ -252,31 +260,17 @@ const renderer = createRenderer({
 })
 
 
-const bol = ref(false)
+const oldVnode = {
+  type: 'div',
+  children: 'test'
+}
+renderer.render(oldVnode, document.querySelector('#app'))
 
-
-effect(() => {
-  const vnode = {
-    type: 'div',
-    props: bol.value ? {
-      onClick: () => {
-        alert('父元素 clicked')
-      }
-    } : {},
-    children: [
-      {
-        type: 'p',
-        props: {
-          onClick: () => {
-            bol.value = true
-            alert('子元素 clicked')
-          }
-        },
-        children: 'text'
-      }
-    ]
-  }
-  // 渲染 vnode
-  console.log('effect')
-  renderer.render(vnode, document.querySelector('#app') as HTMLElement)
-})
+const newVnode = {
+  type: 'div',
+  children: [{
+    type:'div',
+    children: 'null'
+  }]
+}
+renderer.render(newVnode, document.querySelector('#app'))

@@ -6,6 +6,7 @@ describe('reactive/computed', () => {
   it('should run', () => {
     const sumRes = computed(() => obj.foo + obj.bar)
     effect(() => {
+      
       console.log(sumRes.value)
     })
     obj.foo++
