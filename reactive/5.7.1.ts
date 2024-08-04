@@ -1,10 +1,4 @@
-// 5.3如何代理 object
-// 本部分重点实现的是对一个对象的所有“读取”操作
-// 读取操作不仅仅是 obj.key，
-// 在js中还有 "in" 操作符, "for in "循环操作符,"delete"操作符
-//  "for in "循环操作符, TODO: 有些疑惑，对于for in操作符，为
-// 什么要设计为当修改属性的时候，副作用函数不执行，而只有新增属性的时候才执行
-// 
+// 本节实现数组的索引与length
 
 import { ITERATE_KEY } from "@vue/reactivity"
 
@@ -13,7 +7,7 @@ const bucket: WeakMap<Data, Map<string, Set<EffectFn>>> = new WeakMap()
 
 // 原始数据
 type Data = {
-  [key: string | symbol]: string | number
+  [key: string | symbol]: string | number | Data
 }
 
 enum TriggerType {
@@ -21,23 +15,60 @@ enum TriggerType {
   ADD = 'ADD',
   DELETE = 'DELETE'
 }
-export function reactive(obj: Data) {
+// 5.5新增：创建深响应
+export function reactive(obj: Data | Array<any>) {
+  return createReactive(obj)
+}
+// 5.5新增：创建浅响应
+export function shallowReactive(obj: Data) {
+  return createReactive(obj, true)
+}
+// 5.6新增
+export function readonly(obj: Data) {
+  return createReactive(obj, false, true)
+}
+function createReactive(obj: Data | Array<any>, isShallow = false, isReadonly = false) {
   return new Proxy(obj, {
     // 拦截读取操作
     get(target, key, receiver) {
+      // 代理对象可以通过raw 属性访问原始对象
+      if (key === 'raw') {
+        return target
+      }
       // 将副作用函数 activeEffect 添加到存储副作用函数的桶中
       track(target, key as string)
       // 返回属性值
-      return Reflect.get(target, key, receiver)
+      const res = Reflect.get(target, key, receiver)
+      // 新增：用于解决深响应问题，当值是一个对象时，用reactive包裹为响应式数据
+      if (!isShallow && res !== null && typeof res === 'object') {
+        return createReactive(res)
+      }
+      return res
     },
     // 拦截设置操作
     set(target, key, newVal, receiver) {
+      if (isReadonly) {
+        console.warn(`属性${String(key)}是只读的`)
+        return true
+      }
       // 如果属性不存在，则说明是在添加新的属性，否则是设置已存在的属性
-      const type = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD
+      // 5.7.1新增 如果代理的目标是数组，则检测被设置的索引值是否小于数组长度，如果是则为set，否则为add
+
+      const type = Array.isArray(target) ? Number(key) < target.length ? TriggerType.SET : TriggerType.ADD
+        :
+        Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD
       // 设置属性值
+      const oldValue = target[key]
       const res = Reflect.set(target, key, newVal, receiver)
-      // 把副作用函数从桶里取出并执行
-      trigger(target, key as string, type)
+      // 判断receiver是否为target的代理对象，屏蔽由原型引起的更新，避免必要的更新
+      if (target === receiver.raw) {
+        if (oldValue !== newVal && (oldValue === oldValue || newVal === newVal)) {
+          // 把副作用函数从桶里取出并执行
+          trigger(target, key as string, type)
+        }
+      }
+
+
       return res
     },
     // 用于拦截"in"操作符
@@ -52,6 +83,10 @@ export function reactive(obj: Data) {
     },
     // 拦截"delete"操作符
     deleteProperty(target, key) {
+      if (isReadonly) {
+        console.warn(`属性${String(key)}是只读的`)
+        return true
+      }
       const hadKey = Object.prototype.hasOwnProperty.call(target, key)
       const res = Reflect.defineProperty(target, key)
       if (res && hadKey) {
@@ -85,7 +120,6 @@ export function trigger(target: Data, key: string, type: TriggerType) {
   // 取得与key相关联的副作用函数
   const effects = depsMap.get(key)
 
-
   const effectsToRun: Set<EffectFn> = new Set()
   // 将与 key 相关联的副作用函数添加到effectsToRun
   effects && effects.forEach(effectFn => {
@@ -103,6 +137,15 @@ export function trigger(target: Data, key: string, type: TriggerType) {
     })
   }
 
+  // 5.7.1 新增，
+  if (type === TriggerType.ADD && Array.isArray(target)) {
+    const lengthEffects = depsMap.get('length')
+    lengthEffects && lengthEffects.forEach(effectFn => {
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn)
+      }
+    })
+  }
   effectsToRun.forEach(effectFn => {
     // 如果存在调度器的话，交给调度器去执行副作用函数
     if (effectFn.options.scheduler) {
@@ -150,7 +193,6 @@ export function effect(fn: () => void, options = {}) {
   // activeEffect.deps 用来存储所有与该副作用函数相关的依赖集合
   effectFn.deps = []
   // 执行副作用函数
-  // 新增
   if (!effectFn.options.lazy) {
     effectFn()
   }
@@ -183,4 +225,3 @@ function flushJob() {
 
 
 
- 
