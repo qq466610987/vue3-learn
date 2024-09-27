@@ -43,6 +43,10 @@ function createRenderer(options) {
     container._vnode = vnode
   }
 
+  /**
+   * 
+   * @param vnode 
+   */
   function unmount(vnode: Vnode) {
     const parent = (vnode._el as HTMLElement).parentNode
     parent?.removeChild(vnode._el)

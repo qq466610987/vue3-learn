@@ -1,4 +1,4 @@
-// 8.1 事件处理
+// 8.7 事件处理
 import { effect, ref } from '@vue/reactivity'
 
 interface VnodeElement extends HTMLElement {
@@ -126,14 +126,16 @@ const renderer = createRenderer({
     }
     // 新增： 以ON开头的视为事件
     if (/^on/.test(key)) {
+      // 定义el._vei为一个对象，存储事件名称到事件处理函数的映射
+      let invokers = el._vei || (el._vei = {})
       // 代理模式：通过invoker作为一个代理事件处理函数，不用再每次事件更新时，重新解绑再绑定，提高性能
-      let invoker = el._vei
+      let invoker = invokers[key]
       const name = key.slice(2).toLocaleLowerCase()
       // 如果存在新的事件绑定函数，则为更新或新增
       if (nextValue) {
         if (!invoker) {
-          // 代理的事件处理函数
-          invoker = el._vei = (e) => {
+          // 将事件处理函数缓存到el._vei[key]下，避免覆盖
+          invoker = el._vei[key] = (e) => {
             invoker.value(e)
           }
           el.addEventListener(name, invoker)

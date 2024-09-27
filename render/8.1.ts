@@ -7,23 +7,29 @@ interface VnodeElement extends HTMLElement {
 function createRenderer(options) {
   const { createElement, insert, setElementText } = options
 
+  /**
+   * 对外暴漏的渲染函数
+   * @param vnode 
+   * @param container 
+   */
   function render(vnode: Object, container: VnodeElement) {
-    // 新的vnode存在,说明是更新操作
+    // 新的vnode存在,说明是更新操作，将其与旧 vnode 一起传递给 patch 函数进行打补丁
     if (vnode) {
       patch(container._vnode, vnode, container)
     } else {
       // 新的vnode不存在，且旧的vnode存在，说明是卸载操作
       if (container._vnode) {
+        // 暂时实现
         container.innerHTML = ''
       }
     }
-    // 保存新的vnode
-
+    // 把 vnode 存储到 container._vnode 下，即后续渲染中的旧 vnode
     container._vnode = vnode
   }
 
   /**
-   * 
+   * 打补丁
+   * 处理渲染逻辑函数，
    * @param n1 旧的Vnode
    * @param n2 新的Vnode
    * @param container 
@@ -39,6 +45,11 @@ function createRenderer(options) {
 
   }
 
+  /**
+   * 实际挂载节点的函数
+   * @param n2 
+   * @param container 
+   */
   function mountElement(n2, container: VnodeElement) {
     const el = createElement(n2.type)
 
@@ -52,6 +63,13 @@ function createRenderer(options) {
         patch(null, element, el)
       });
     }
+    // 处理vnode.props
+    if (vnode.props) {
+      for (const key in vnode.props) {
+        el.setAttribute(key, vnode.props[key])
+      }
+    }
+
     insert(el, container)
 
   }

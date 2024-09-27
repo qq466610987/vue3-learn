@@ -24,6 +24,10 @@ function createRenderer(options) {
         unmount(container._vnode)
       }
     }
+    /**
+     * 通过dom操作卸载元素
+     * @param vnode 旧的Vnode
+     */
     function unmount(vnode) {
       const parent = (vnode._el as HTMLElement).parentNode
       parent?.removeChild(vnode._el)
@@ -55,6 +59,7 @@ function createRenderer(options) {
    * @param container 虚拟节点container
    */
   function mountElement(vnode, container: VnodeElement) {
+    // 让vnode._el 挂载真实的dom元素
     const el = vnode._el = createElement(vnode.type) as HTMLElement
 
     // 处理children

@@ -66,9 +66,27 @@ function createRenderer(options) {
 
 
   }
-  // 打补丁操作
+  
+  /**
+   * 打补丁操作
+   * @param n1 旧节点
+   * @param n2 新节点
+   */
   function patchElement(n1, n2) {
+    const el = n2.el = n1.el
+    const oldProps = n1.props
+    const newProps = n2.props
 
+    for (const key in newProps) {
+      if (newProps[key] !== oldProps[key]) {
+        patchProps(el, key, oldProps[key], newProps[key])
+      }
+    }
+    for (const key in oldProps) {
+      if (!(key in newProps)) {
+        patchProps(el, key, oldProps[key], null)
+      }
+    }
   }
 
   /**

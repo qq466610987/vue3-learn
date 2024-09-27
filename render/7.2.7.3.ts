@@ -40,15 +40,18 @@ function createRenderer(options) {
   }
 
   function mountElement(n2, container: VnodeElement) {
+
     const el = createElement(n2.type)
 
     if (typeof n2.children === 'string') {
       setElementText(n2, n2.children)
       // el.textContent = n2.children
     }
+    // 调用insert函数将元素插入容器
     insert(el, container)
     // container.appendChild(el)
   }
+  
   return { render }
 }
 
@@ -60,15 +63,15 @@ const vnode = {
 const renderer = createRenderer({
   createElement(tag) {
     console.log(`创建元素 ${tag}`)
-    return { tag }
+    return document.createElement(tag)
   },
   setElementText(el, text) {
     console.log(`设置 ${JSON.stringify(el)} 的文本内容：${text}`)
     el.textContent = text
   },
-  insert(el, parent, anchor = null) {
+  insert(el: HTMLElement, parent: HTMLElement, anchor = null) {
     console.log(`将 ${JSON.stringify(el)} 添加到 ${JSON.stringify(parent)} 下`)
-    parent.children = el
+    parent.insertBefore(el, anchor)
   }
 })
 const container = { type: 'root ' }
