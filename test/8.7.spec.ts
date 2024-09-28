@@ -1,5 +1,5 @@
 import { beforeAll, describe, it, vi } from "vitest";
-import { createRenderer } from '../render/8.7'
+import { createRenderer, normalizeClass } from '../render/8.7'
 
 describe('8.7事件绑定', () => {
   let render;

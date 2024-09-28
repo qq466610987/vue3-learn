@@ -5,7 +5,7 @@ interface VnodeElement extends HTMLElement {
   _vnode?: Object
 }
 
-function createRenderer(options) {
+export function createRenderer(options) {
   const { createElement, insert, setElementText, patchProps } = options
 
   /**
@@ -156,7 +156,6 @@ const renderer = createRenderer({
     }
     // 如果domproperties里有属性key
     else if (shouldSetAsProps(el, key, nextValue)) {
-
       // 获取dom properties的类型
       const type = typeof el[key]
       // 处理边缘case,比如处理模板`<button disable>`
@@ -177,7 +176,7 @@ const renderer = createRenderer({
  * @param classObj class
  * @returns 
  */
-function normalizeClass(classObj: Array<Object> | string | Object): string {
+export function normalizeClass(classObj: Array<Object> | string | Object): string {
   // classobj可能有三种方式
   // 1. 字符串方式 'foo bar'
   if (typeof classObj === 'string') {
