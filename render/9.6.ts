@@ -65,6 +65,7 @@ function createRenderer(options) {
             patch(oldVNode, newVNode, container)
             if (j < lastIndex) {
               // 需要移动
+              // 因为简单算法是按照顺序执行的，所以此时遍历的节点i之前的节点一定都是排好序的
               const prevVNode = newChildren[i - 1]
               if (prevVNode) {
                 const anchor = prevVNode.el.nextSibling
